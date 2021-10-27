@@ -1,3 +1,6 @@
+croaring/*.c
+croaring/*.h
+croaring/*.hh
 # Prerequisites
 *.d
 
