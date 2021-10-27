@@ -1,5 +1,5 @@
 # This module is migrate from [aviggiano](https://github.com/aviggiano/redis-roaring)
-===========
+
 Due to the building issues and intergration issues, I've made some changes for easier intergration
 
 ## Roaring Bitmaps for Redis as module
@@ -27,27 +27,16 @@ sudo apt-get install libroaring-dev
 
 ## Getting started
 
-```
-$ git clone https://github.com/aviggiano/redis-roaring.git
-$ cd redis-roaring/
-$ configure.sh
-$ cd dist 
-$ ./redis-server ./redis.conf  
-```
-then you can open another terminal and use `./redis-cli` to connect to the redis server
+```sh
+git clone https://github.com/yorkane/redis-roaring.git
+cd redis-roaring/
+make
+# output module redis-roaring.so
 
-## Docker
-
-It is also possible to run this project as a docker container.
-
-```bash
-docker run -p 6379:6379 aviggiano/redis-roaring:latest
+# Start redis-server with module:
+redis-server --loadmodule redis-roaring.so
 ```
 
-## Tests
-
-Run the `test.sh` script for unit tests, integration tests and performance tests.
-The performance tests can take a while, since they run on a real dataset of integer values.
 
 ## API
 
