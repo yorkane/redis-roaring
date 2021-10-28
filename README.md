@@ -1,4 +1,4 @@
-# This module is migrate from [aviggiano](https://github.com/aviggiano/redis-roaring)
+# This module is migrated from [aviggiano](https://github.com/aviggiano/redis-roaring)
 
 Due to the building issues and intergration issues, I've made some changes for easier intergration
 
@@ -15,27 +15,33 @@ Pull requests are welcome.
 
 
 ## Dependencies
-- CRoaring (bitmap compression library used by this redis module)
+- [CRoaring](https://github.com/RoaringBitmap/CRoaring/releases) (bitmap compression library used by this redis module) 
+- Correspond Redis-server's [redismodule.h](https://github.com/RedisLabsModules/RedisModulesSDK/blob/master/redismodule.h) (Replace it as you need)
 
-### under Ubuntu
+#### Under Ubuntu
 ```sh
 sudo apt-get install libroaring-dev
 ```
-##### Known issues
-
-- This library only works with [32-bit integeres](https://github.com/RoaringBitmap/CRoaring/issues/1) (e.g. counting numbers up to 4294967296)
+#### Manual compile
+```
+# compile and install libroaring.so and header files with version v0.4.0
+bash deps.sh
+```
 
 ## Getting started
 
 ```sh
 git clone https://github.com/yorkane/redis-roaring.git
 cd redis-roaring/
-make
 # output module redis-roaring.so
+make
 
 # Start redis-server with module:
 redis-server --loadmodule redis-roaring.so
 ```
+##### Known issues
+
+- This library only works with [32-bit integeres](https://github.com/RoaringBitmap/CRoaring/issues/1) (e.g. counting numbers up to 4294967296)
 
 
 ## API
