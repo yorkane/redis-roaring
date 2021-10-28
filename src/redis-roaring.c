@@ -497,6 +497,76 @@ int RGetBitArrayCommand(RedisModuleCtx* ctx, RedisModuleString** argv, int argc)
 }
 
 
+/**
+ * R.ExportBin <key>
+ * */
+int RExportBinCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
+  if (argc != 2) {
+    return RedisModule_WrongArity(ctx);
+  }
+  // Detect Key is exsit
+  RedisModuleKey *key = RedisModule_OpenKey(ctx, argv[1], REDISMODULE_READ);
+  int type = RedisModule_KeyType(key);
+  if (type == REDISMODULE_KEYTYPE_EMPTY) {
+    return RedisModule_ReplyWithError(ctx, "bitmap key not exist");
+  }
+
+  // Detect value is bitmap type
+  if (RedisModule_ModuleTypeGetType(key) != BitmapType) {
+    return RedisModule_ReplyWithError(ctx, REDISMODULE_ERRORMSG_WRONGTYPE);
+  }
+
+  RedisModule_AutoMemory(ctx);
+
+  Bitmap* bitmap = RedisModule_ModuleTypeGetValue(key);
+
+  size_t serialized_max_size = roaring_bitmap_size_in_bytes(bitmap);
+  char *serialized_bitmap = RedisModule_Alloc(serialized_max_size);
+  size_t serialized_size = roaring_bitmap_serialize(bitmap, serialized_bitmap);
+
+  // Redis will handle free-memroy phase
+  RedisModule_ReplyWithStringBuffer(ctx, serialized_bitmap, serialized_size);
+  return REDISMODULE_OK;
+}
+
+/**
+ * R.ImportBin <key> <serialized string>
+ * */
+int RImportBinCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
+  if (argc != 2) {
+    return RedisModule_WrongArity(ctx);
+  }
+  size_t len;
+  const char *bin = RedisModule_StringPtrLen(argv[2], &len);
+  if (len < 10) {
+    return RedisModule_ReplyWithError(ctx, "bad binary data for roaring");
+  }
+  RedisModuleKey *key = RedisModule_OpenKey(ctx, argv[1], REDISMODULE_READ | REDISMODULE_WRITE);
+  int type = RedisModule_KeyType(key);
+  if (type != REDISMODULE_KEYTYPE_EMPTY &&
+      RedisModule_ModuleTypeGetType(key) != BitmapType) {
+    return RedisModule_ReplyWithError(ctx, REDISMODULE_ERRORMSG_WRONGTYPE);
+  }
+
+  RedisModule_AutoMemory(ctx);
+
+  Bitmap *newbitmap = roaring_bitmap_deserialize(bin);
+  uint64_t count;
+  if (type == REDISMODULE_KEYTYPE_EMPTY) {
+    count = bitmap_get_cardinality(newbitmap);
+    RedisModule_ModuleTypeSetValue(key, BitmapType, newbitmap);
+  } else {
+    Bitmap* bitmap = RedisModule_ModuleTypeGetValue(key);
+    roaring_bitmap_or_inplace(bitmap, newbitmap);
+    count = bitmap_get_cardinality(bitmap);
+    bitmap_free(newbitmap);
+  }
+  RedisModule_ReplicateVerbatim(ctx);
+  RedisModule_ReplyWithLongLong(ctx, count);
+  return REDISMODULE_OK;
+}
+
+
 int RBitOp(RedisModuleCtx* ctx, RedisModuleString** argv, int argc, Bitmap* (* operation)(uint32_t, const Bitmap**)) {
   if (RedisModule_IsKeysPositionRequest(ctx) > 0) {
     if (argc > 4) {
@@ -912,6 +982,13 @@ int RedisModule_OnLoad(RedisModuleCtx* ctx) {
     return REDISMODULE_ERR;
   }
   if (RedisModule_CreateCommand(ctx, "R.MAX", RMaxCommand, "readonly", 1, 1, 1) == REDISMODULE_ERR) {
+    return REDISMODULE_ERR;
+  }
+  if (RedisModule_CreateCommand(ctx, "R.ExportBin", RExportBinCommand, "readonly", 1, 1, 1) == REDISMODULE_ERR) {
+    return REDISMODULE_ERR;
+  }
+
+  if (RedisModule_CreateCommand(ctx, "R.ImportBin", RImportBinCommand, "write", 0, 0, 0) == REDISMODULE_ERR) {
     return REDISMODULE_ERR;
   }
 
