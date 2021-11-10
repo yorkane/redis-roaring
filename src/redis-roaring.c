@@ -518,14 +518,17 @@ int RExportBinCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
 
   RedisModule_AutoMemory(ctx);
 
-  Bitmap* bitmap = RedisModule_ModuleTypeGetValue(key);
+  Bitmap *bitmap = RedisModule_ModuleTypeGetValue(key);
 
-  size_t serialized_max_size = roaring_bitmap_size_in_bytes(bitmap);
+  size_t serialized_max_size = roaring_bitmap_portable_size_in_bytes(bitmap);
   char *serialized_bitmap = RedisModule_Alloc(serialized_max_size);
-  size_t serialized_size = roaring_bitmap_serialize(bitmap, serialized_bitmap);
+  size_t serialized_size = roaring_bitmap_portable_serialize(bitmap, serialized_bitmap);
+
+  // size_t count = bitmap_get_cardinality(bitmap);
 
   // Redis will handle free-memroy phase
   RedisModule_ReplyWithStringBuffer(ctx, serialized_bitmap, serialized_size);
+  // RedisModule_ReplyWithLongLong(ctx, serialized_max_size);
   return REDISMODULE_OK;
 }
 
@@ -533,7 +536,7 @@ int RExportBinCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
  * R.ImportBin <key> <serialized string>
  * */
 int RImportBinCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
-  if (argc != 2) {
+  if (argc != 3) {
     return RedisModule_WrongArity(ctx);
   }
   size_t len;
@@ -550,7 +553,7 @@ int RImportBinCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
 
   RedisModule_AutoMemory(ctx);
 
-  Bitmap *newbitmap = roaring_bitmap_deserialize(bin);
+  Bitmap *newbitmap = roaring_bitmap_portable_deserialize(bin);
   uint64_t count;
   if (type == REDISMODULE_KEYTYPE_EMPTY) {
     count = bitmap_get_cardinality(newbitmap);
@@ -864,9 +867,11 @@ int RMaxCommand(RedisModuleCtx* ctx, RedisModuleString** argv, int argc) {
 /* === Bitmap type methods === */
 void BitmapRdbSave(RedisModuleIO *rdb, void *value) {
   Bitmap *bitmap = value;
-  size_t serialized_max_size = roaring_bitmap_size_in_bytes(bitmap);
+  roaring_bitmap_shrink_to_fit(bitmap);
+  roaring_bitmap_run_optimize(bitmap);
+  size_t serialized_max_size = roaring_bitmap_portable_size_in_bytes(bitmap);
   char *serialized_bitmap = RedisModule_Alloc(serialized_max_size);
-  size_t serialized_size = roaring_bitmap_serialize(bitmap, serialized_bitmap);
+  size_t serialized_size = roaring_bitmap_portable_serialize(bitmap, serialized_bitmap);
   RedisModule_SaveStringBuffer(rdb, serialized_bitmap, serialized_size);
   RedisModule_Free(serialized_bitmap);
 }
@@ -879,7 +884,7 @@ void *BitmapRdbLoad(RedisModuleIO *rdb, int encver) {
   }
   size_t size;
   char *serialized_bitmap = RedisModule_LoadStringBuffer(rdb, &size);
-  Bitmap *bitmap = roaring_bitmap_deserialize(serialized_bitmap);
+  Bitmap *bitmap = roaring_bitmap_portable_deserialize(serialized_bitmap);
   RedisModule_Free(serialized_bitmap);
   return bitmap;
 }
@@ -984,11 +989,11 @@ int RedisModule_OnLoad(RedisModuleCtx* ctx) {
   if (RedisModule_CreateCommand(ctx, "R.MAX", RMaxCommand, "readonly", 1, 1, 1) == REDISMODULE_ERR) {
     return REDISMODULE_ERR;
   }
-  if (RedisModule_CreateCommand(ctx, "R.ExportBin", RExportBinCommand, "readonly", 1, 1, 1) == REDISMODULE_ERR) {
+  if (RedisModule_CreateCommand(ctx, "R.EXPORT", RExportBinCommand, "readonly", 1, 1, 1) == REDISMODULE_ERR) {
     return REDISMODULE_ERR;
   }
 
-  if (RedisModule_CreateCommand(ctx, "R.ImportBin", RImportBinCommand, "write", 0, 0, 0) == REDISMODULE_ERR) {
+  if (RedisModule_CreateCommand(ctx, "R.IMPORT", RImportBinCommand, "write", 0, 0, 0) == REDISMODULE_ERR) {
     return REDISMODULE_ERR;
   }
 

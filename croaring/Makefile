@@ -6,7 +6,9 @@ PREFIX ?= /usr/local
 all: roaring
 
 roaring: roaring.o
-	$(CC) $(CFLAGS) -o libroaring.so $^ $(LDFLAGS) 
+	$(CC) $(CFLAGS) -o libroaring.so $^ $(LDFLAGS)
+test_app: test.o
+	$(CC) $(CFLAGS) -o test $^ -lroaring
 
 install: 
 	mkdir -p /usr/include/roaring/
