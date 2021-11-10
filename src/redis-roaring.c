@@ -519,7 +519,8 @@ int RExportBinCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
   RedisModule_AutoMemory(ctx);
 
   Bitmap *bitmap = RedisModule_ModuleTypeGetValue(key);
-
+  roaring_bitmap_shrink_to_fit(bitmap);
+  roaring_bitmap_run_optimize(bitmap);
   size_t serialized_max_size = roaring_bitmap_portable_size_in_bytes(bitmap);
   char *serialized_bitmap = RedisModule_Alloc(serialized_max_size);
   size_t serialized_size = roaring_bitmap_portable_serialize(bitmap, serialized_bitmap);

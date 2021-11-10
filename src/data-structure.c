@@ -1,10 +1,10 @@
 #include "data-structure.h"
 #include <roaring/roaring.h>
 #include <stdlib.h>
+#include <string.h>
+ /* === Internal data structure === */
 
-/* === Internal data structure === */
-
-Bitmap* bitmap_alloc() {
+    Bitmap *bitmap_alloc() {
   return roaring_bitmap_create();
 }
 
